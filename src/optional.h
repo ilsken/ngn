@@ -7,7 +7,7 @@
 // The idea and interface is based on Boost.Optional library
 // authored by Fernando Luis Cacciola Carballal
 
-# ifdef POLYFILL_OPTIONAL
+# ifdef NGN_OPTIONAL_POLYFILL
 # ifndef ___OPTIONAL_HPP___
 # define ___OPTIONAL_HPP___
 

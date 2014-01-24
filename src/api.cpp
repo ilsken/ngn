@@ -10,6 +10,7 @@
 #define uv_api_cpp
 
 #include "v8.h"
+
 v8::internal::Thread::LocalStorageKey v8::internal::PerThreadAssertScopeBase::thread_local_key;
 void v8::internal::FatalProcessOutOfMemory(char const* location) {
     FATAL("Process out of memory");
