@@ -2,7 +2,15 @@
   'variables': {
     'ngn_shared_cares%': 'false',
     'ngn_shared_libuv%': 'false',
-    'ngn_optional_polyfill%': 'true'
+    'ngn_use_boost%': 'false',
+    # set to false if your compiler supports std::optional
+    'ngn_use_optional_standalone%': 'true',
+    # set a custom location to search for boost headers
+    'ngn_use_custom_boost_root%': 'false',
+    'ngn_custom_boost_root%': 'deps/boost',
+    'ngn_enable_il8n_support%': 'false',
+    'icu_gyp_path%': 'deps/icu/icu.gyp',
+    'os_posix%': 1
   },
   'targets': [
     {
@@ -11,76 +19,84 @@
       'msvs_guid': '02410d86-8b77-471f-92b9-241d504a678f',
       'dependencies': [
         'deps/uv/uv.gyp:libuv',
+        'deps/tq/tq.gyp:tq'
       ],
       'defines': [
         'ARCH="<(target_arch)"',
-        'PLATFORM="<(OS)"',
-        ''
-        'DEFINE_A_VALUE=value',
+        'PLATFORM="<(OS)"'
       ],
       'include_dirs': [
-        'src',
+        'src/',
         'deps/uv/src/ares'
       ],
      'sources': [
-        'src/allocation.cpp',
-        'src/api.cpp',
         'src/buffer.cpp',
-        'src/checks.cpp',
+        'src/buffer_decoder.cpp',
         'src/encoding.cpp',
         'src/eventloop.cpp',
         'src/filesystem.cpp',
+      #  'src/folly/io/IOBuf.cpp',
+        'src/handle.cpp',
+        'src/io_buffer.cpp',
         'src/main.cpp',
-        'src/platform-posix.cpp',
-        'src/scanner-character-streams.cpp',
         'src/stream.cpp',
         'src/string_bytes.cpp',
-        'src/unicode.cpp',
+        'src/unicode_string.cpp',
         'src/utils.cpp',
-        'src/v8utils.cpp',
         'src/wrapper.cpp',
+
         # headers for IDE
-        'src/allocation.h',
-        'src/assert-scope.h',
-        'src/atomicops.h',
-        'src/atomicops_internals_x86_macosx.h',
+        'src/any-standalone.h',
+        'src/any.h',
         'src/buffer.h',
-        'src/char-predicates.h',
-        'src/checks.cpp',
-        'src/checks.h',
+        'src/buffer_decoder.h',
+        'src/boost/config.hpp',
         'src/encoding.h',
         'src/event.h',
         'src/eventloop.h',
         'src/exceptions.h',
         'src/filesystem.h',
-        'src/globals.h',
-        'src/hashmap.h',
-        'src/internals.h',
-        'src/list.h',
+        'src/folly/config.h',
+        'src/folly/detail/UncaughtExceptionCounter.h',
+       # 'src/folly/io/IOBuf.h',
+        'src/folly/Likely.h',
+        'src/folly/Optional.h',
+        'src/folly/Preprocessor.h',
+        'src/folly/ScopeGuard.h',
+        'src/handle.h',
+        'src/io_buffer.h',
         'src/ngn.h',
-        'src/platform.h',
+        'src/optional-standalone.h',
+        'src/optional.h',
         'src/pointer_iterator.h',
-        'src/scanner-character-streams.cpp',
-        'src/scanner-character-streams.h',
-        'src/scanner.h',
         'src/stream.h',
         'src/string_bytes.h',
         'src/traits.h',
-        'src/unicode-inl.h',
-        'src/unicode.h',
+        'src/unicode_string.h',
         'src/utils.h',
-        'src/v8.h',
-        'src/v8checks.h',
-        'src/v8config.h',
-        'src/v8globals.h',
-        'src/v8stdint.h',
-        'src/v8utils.h',
-        'src/wrapper.h',
-      ],
+        'src/wrapper.h'
+        ],
       'conditions': [
-        ['ngn_optional_polyfill=="true"', {
-          'defines': ['NGN_OPTIONAL_POLYFILL'],
-          'sources': ['src/optional.h']
+        ['ngn_enable_il8n_support == "true"', {
+          'dependencies': [
+            '<(icu_gyp_path):icui18n',
+            '<(icu_gyp_path):icuuc',
+            '<(icu_gyp_path):icudata'
+          ]
+        }
+        ],
+        ['ngn_use_boost=="true"', {
+          'defines': ['NGN_USE_BOOST']
+        }],
+        ['ngn_use_boost=="true" and ngn_use_custom_boost_root=="true"', {
+          'include_dirs': ['<(ngn_custom_boost_root)']
+        }],
+        ['ngn_use_optional_standalone=="true" and ngn_use_boost=="false"', {
+          'defines': ['NGN_USE_OPTIONAL_STANDALONE'],
+          'sources': ['src/optional-standalone.h']
+        }],
+        ['ngn_use_boost=="false"', {
+          'sources': ['src/any-standalone.h']
         }],
         ['OS=="linux"', {
           'defines': [

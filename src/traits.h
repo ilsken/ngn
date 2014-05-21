@@ -18,6 +18,9 @@ namespace ngn {
     
     template<class BufferType, class ObjectType>
     struct data_event_traits<BufferType, ObjectType, false>{ typedef BufferType event_type; };
+    
+    template <class T>
+    using value_type_t = typename T::value_type;
 };
 
 #endif

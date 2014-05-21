@@ -11,6 +11,7 @@
 #include <algorithm>
 
 namespace ngn {
+    
     typedef Buffer::iterator buffer_iterator;
     typedef Buffer::const_iterator const_buffer_iterator;
     typedef Buffer::reference reference;
@@ -25,9 +26,9 @@ namespace ngn {
     // Memory will automatically be freed when all related buffers are freed
     //
     Buffer::Buffer()
-    : base_(nullptr), buffer_({0, 0}) {};
+    : buffer_(uv_buf_init(0, 0)), base_(nullptr) {};
 
-    Buffer::Buffer(size_t size)
+    Buffer::Buffer(size_type size)
         : buffer_(uv_buf_init(new char[size], static_cast<unsigned int>(size)))
     , base_(std::shared_ptr<value_type>(reinterpret_cast<pointer>(buffer_.base), std::default_delete<value_type[]>()))
     {};
@@ -35,22 +36,22 @@ namespace ngn {
     // take ownership of unique_ptrs
     Buffer::Buffer(std::unique_ptr<value_type[]> data, size_type offset, size_type length): Buffer(std::shared_ptr<value_type>(data.release(), data.get_deleter()), offset, length) {};
     
-    Buffer::Buffer(std::shared_ptr<value_type> data, size_type offset, size_type length) : base_(data), buffer_(uv_buf_init(reinterpret_cast<char*>(&data.get()[offset]), static_cast<unsigned int>(length))){
+    Buffer::Buffer(std::shared_ptr<value_type> data, size_type offset, size_type length)
+    : buffer_(uv_buf_init(reinterpret_cast<char*>(&data.get()[offset]), static_cast<unsigned int>(length))), base_(data){
     }
     
     Buffer::Buffer(const char* data, size_type length) : Buffer(data, 0, length) {};
-    Buffer::Buffer(const char* data) : Buffer(data, 0, strlen(data)) {};
     Buffer::Buffer(const char* data, size_type offset, size_type length) : Buffer(length - offset) {
-        std::copy_n(data+offset, length, this->begin());
+        std::copy_n(&data[offset], length, buffer_.base);
     };
     
     // copy constructor
     Buffer::Buffer(const Buffer& other) : Buffer(other.size()) {
-        std::copy(other.begin(), other.end(), begin());
+        std::copy_n(other.buffer_.base, buffer_.len, buffer_.base);
     };
     
     // move constructor
-    Buffer::Buffer(Buffer&& other){
+    Buffer::Buffer(Buffer&& other) noexcept {
         using std::swap;
         swap(base_, other.base_);
         swap(buffer_, other.buffer_);
@@ -118,8 +119,8 @@ namespace ngn {
         return !(*this == rhs);
     };
     
-    reference Buffer::operator[](size_t index) const{
-        return reinterpret_cast<reference>(buffer_.base[index]);
+    const_reference Buffer::operator[](size_t index) const{
+        return reinterpret_cast<const_reference>(buffer_.base[index]);
     };
     
     reference Buffer::operator[](size_t index){
@@ -142,15 +143,47 @@ namespace ngn {
     };
     
     // Capacity
-    const Buffer::size_type Buffer::size() const{
+    Buffer::size_type Buffer::size() const noexcept{
         return buffer_.len;
     };
-    const Buffer::size_type Buffer::max_size() const {
+    Buffer::size_type Buffer::max_size() const noexcept{
         return size();
     };
-    const bool Buffer::empty() const {
+    bool Buffer::empty() const noexcept{
         return size() == 0;
     } ;
+    void Buffer::reserve(Buffer::size_type size) {
+        size_t len(buffer_.len);
+        if (size > len) {
+            char* newbuf = new char[size];
+            if (buffer_.base != nullptr && len) {
+                std::memcpy(newbuf, buffer_.base, len);
+            }
+            base_.reset(newbuf);
+            buffer_ = uv_buf_init(newbuf, static_cast<unsigned int>(size));
+        }
+        
+    }
+    void Buffer::resize(Buffer::size_type size) {
+        size_t len(buffer_.len);
+        
+        if (size > len) {
+            reserve(size);
+        } else if (size < len) {
+            buffer_.len = size;
+        }
+    }
+    void Buffer::resize(Buffer::size_type size, const Buffer::value_type val) {
+        size_t len(buffer_.len);
+        
+        if (size > len) {
+            char* base = buffer_.base + len;
+            reserve(size);
+            std::memset(base, val, buffer_.base - base);
+        } else if (size < len) {
+            buffer_.len = size;
+        }
+    }
     
     // Iterators
     Buffer::const_iterator Buffer::cbegin() const {

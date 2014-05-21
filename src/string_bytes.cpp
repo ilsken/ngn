@@ -24,6 +24,7 @@
 #include <assert.h>
 #include <limits.h>
 #include <string.h>  // memcpy
+#include <codecvt>
 
 // When creating strings >= this length v8's gc spins up and consumes
 // most of the execution time. For these cases it's more performant to
@@ -246,21 +247,8 @@ namespace ngn {
         size_t data_size = 0;
         
         switch (encoding) {
-            case BINARY:
-            case BUFFER:
             case ASCII:
                 data_size = str.length();
-                break;
-                
-            case UTF8:
-                // A single UCS2 codepoint never takes up more than 3 utf8 bytes.
-                // It is an exercise for the caller to decide when a string is
-                // long enough to justify calling Size() instead of StorageSize()
-                data_size = 3 * str.length();
-                break;
-                
-            case UCS2:
-                data_size = str.length() * sizeof(uint16_t);
                 break;
                 
             case BASE64:
@@ -285,19 +273,8 @@ namespace ngn {
         size_t data_size = 0;
         
         switch (encoding) {
-            case BINARY:
-            case BUFFER:
             case ASCII:
                 data_size = str.length();
-                break;
-                
-            case UTF8:
-                //data_size = str.length(); // TODO: UTF9
-                assert(0 && "utf8 not yet supported");
-                break;
-                
-            case UCS2:
-                data_size = str.length() * sizeof(uint16_t);
                 break;
                 
             case BASE64: {
@@ -555,5 +532,6 @@ namespace ngn {
         return Buffer(0ul);
         
     }
+
     
 }  // namespace node

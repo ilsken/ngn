@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 var exec = require('child_process').exec;
 var spawn = require('child_process').spawn;
 var path = require('path');
@@ -41,6 +42,13 @@ function compiler_version(callback) {
     })
   })
 }
+/*
+function detect_headers(headers, done) {
+  var src = headers.map(function(header) {
+    return ['#include <', header, '>'].join('');
+  }).join('\n');
+  spawn(compiler, [''])
+}*/
 
 if (os.platform() == 'win32') {
   env.GYP_MSVS_VERSION = '2010'
@@ -75,7 +83,9 @@ function run() {
   setDefault('target_arch', os.arch());
   setDefault('library', 'static_library');
   setDefault('component', 'static_library');
-  spawn('gyp', args);
+  var proc = spawn('gyp', args);
+  proc.stdout.pipe(process.stdout);
+  proc.stderr.pipe(process.stderr);
 }
 
 

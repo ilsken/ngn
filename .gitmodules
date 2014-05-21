@@ -4,3 +4,18 @@
 [submodule "deps/uv"]
 	path = deps/uv
 	url = https://github.com/joyent/libuv
+[submodule "folly"]
+	path = folly
+	url = https://github.com/facebook/folly.git
+[submodule "deps/folly"]
+	path = deps/folly
+	url = https://github.com/facebook/folly.git
+[submodule "deps/double-conversion"]
+	path = deps/double-conversion
+	url = https://code.google.com/p/double-conversion/
+[submodule "deps/jemalloc"]
+	path = deps/jemalloc
+	url = https://github.com/jemalloc/jemalloc.git
+[submodule "deps/tq"]
+	path = deps/tq
+	url = git@github.com:ilsken/tq.git

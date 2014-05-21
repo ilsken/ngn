@@ -29,13 +29,13 @@ namespace ngn {
         message_ = message.str();
         
        };
-       const size_t buffer_size(){
+       size_t buffer_size(){
            return buffer_size_;
        };
-       const size_t offset(){
+       size_t offset(){
            return offset_;
        };
-       const size_t size(){
+       size_t size(){
            return size_;
        }
        virtual const char* what() const throw()

@@ -7,26 +7,32 @@
 //
 
 #include "eventloop.h"
+#include <memory>
 
 namespace ngn{
-    static const EventLoop default_loop_(uv_default_loop());
     
+    //static EventLoop* default_loop_ptr = nullptr;
     void tick(uv_idle_t* handle, int status) {
         EventLoop* loop = reinterpret_cast<EventLoop*>(handle->data);
-        loop->onTick();
-        loop->onTick.removeAllListeners();
+        loop->nextTick();
+        loop->nextTick.removeAllListeners();
     }
-    
     EventLoop::EventLoop(uv_loop_t* handle) : handle_(handle) {
     };
     
-    EventLoop::EventLoop() : handle_(uv_loop_new()) {
-
+    EventLoop::EventLoop() : EventLoop(uv_loop_new()) {
     };
     
-    const EventLoop& EventLoop::default_loop() {
-        return default_loop_;
+    void EventLoop::stop() {
+        uv_stop(handle_);
     }
+
+    EventLoop& EventLoop::default_loop() {
+        static EventLoop ev(uv_default_loop());
+        return ev;
+        //return *default_loop_ptr;
+    }
+    
     
     int EventLoop::run(){
         return run(RunMode::UV_RUN_DEFAULT);
@@ -36,29 +42,14 @@ namespace ngn{
         return uv_run(handle_, mode);
     }
     
-    void EventLoop::enableTick() {
-        if (tick_handle_ != nullptr) return;
-        uv_idle_init(handle_, tick_handle_);
-        EventLoop* self = &*this;
-        tick_handle_->data = self;
-        uv_idle_start(tick_handle_, tick);
-        uv_unref(reinterpret_cast<uv_handle_t*>(tick_handle_));
-    }
-    
-    
-    const uv_loop_t* const EventLoop::handle(){
+    uv_loop_t* EventLoop::handle() const {
         return handle_;
     };
     
     EventLoop::~EventLoop() {
         if (handle_ != nullptr) {
-            if (tick_handle_ != nullptr) {
-                uv_idle_stop(tick_handle_);
-            }
-            uv_stop(handle_);
+            uv_run(handle_, UV_RUN_NOWAIT);
             uv_loop_delete(handle_);
-            delete tick_handle_;
-            tick_handle_ = nullptr;
             handle_ = nullptr;
         }
     }

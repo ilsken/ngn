@@ -173,6 +173,8 @@
           'GCC_THREADSAFE_STATICS': 'NO',           # -fno-threadsafe-statics
           'PREBINDING': 'NO',                       # No -Wl,-prebind
           'USE_HEADERMAP': 'NO',
+          'CLANG_CXX_LANGUAGE_STANDARD': 'gnu++0x',
+          'CLANG_CXX_LIBRARY': 'libc++',
           'OTHER_CFLAGS': [
             '-fstrict-aliasing',
           ],

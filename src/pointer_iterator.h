@@ -78,6 +78,10 @@ public:
 	reference operator[](const difference_type& n) const
     { return m_pData[n]; }
     
+    operator pointer() {
+        return m_pData;
+    }
+    
 	template<typename T>
 	friend bool operator==(
                            const PointerIterator<T>& r1,

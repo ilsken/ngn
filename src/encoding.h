@@ -24,7 +24,7 @@ namespace ngn {
             Base64,
             Hex
         };
-        static const size_t hex_encode(const char* src, size_t slen, char* dst, size_t dlen)   {            // We know how much we'll write, just make sure that there's space.
+        static size_t hex_encode(const char* src, size_t slen, char* dst, size_t dlen)   {            // We know how much we'll write, just make sure that there's space.
             assert(dlen >= slen * 2 &&
                    "not enough space provided for hex encode");
             
@@ -62,7 +62,7 @@ namespace ngn {
         struct encoder<Encoding::Hex> {
             typedef encoder<Encoding::Hex> type;
             static const enum Encoding encoding = Hex;
-            static const size_t storageSize(const Buffer& buffer) {
+            static size_t storageSize(const Buffer& buffer) {
                 return buffer.size() * 2;
             }
             static const std::string encode(const Buffer& buffer) {
