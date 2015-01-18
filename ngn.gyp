@@ -27,7 +27,8 @@
       ],
       'include_dirs': [
         'src/',
-        'deps/uv/src/ares'
+        'deps/uv/src/ares',
+        'deps/core/include'
       ],
      'sources': [
         'src/buffer.cpp',

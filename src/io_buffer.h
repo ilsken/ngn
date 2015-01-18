@@ -13,18 +13,16 @@
 #include "transform_traits.h"
 
 #include <iostream>
+#include <core/type_traits.hpp>
 #include <scoped_allocator>
 #include <atomic>
 #include <new>
-#include <tq/type_traits.h>
 #include <assert.h>
-#include "aligned_allocator.h"
 
 #define NGN_ENABLE_IF(R) class = tq::enable_if_t<R::value>
 
 
 namespace ngn { namespace experimental {
-    using namespace tq;
     static constexpr bool IS_BIG_ENDIAN = htonl(47) == 47;
     enum ByteOrder {
         Default = BYTE_ORDER,
@@ -33,7 +31,7 @@ namespace ngn { namespace experimental {
     };
     // detects containers with a data() member
     // in STL all of these have contigous storage
-    template <class T>
+   /* template <class T>
     class is_contiguous_helper {
     public:
         template <class C>
@@ -53,11 +51,11 @@ namespace ngn { namespace experimental {
         decltype(check_tag<T>(0))::value && decltype(check<T>(0))::value,
         std::true_type,
         std::false_type>  result;
-    };
+    };*/
     
-    template <class T> struct is_contiguous_container : is_contiguous_helper<T>::result {};
+    /*template <class T> struct is_contiguous_container : is_contiguous_helper<T>::result {};*/
     
-    template <class T>
+    /*template <class T>
     class is_trivial_helper {
         template <class C>
         static detail::is_trivially_copyable_t<typename C::value_type> check(int);
@@ -73,7 +71,7 @@ namespace ngn { namespace experimental {
     template <class T> struct is_contiguous_trivial_container
     : std::integral_constant<bool, is_contiguous_container<T>::value && is_trivial_container<T>::value> {};
     
-    
+    */
     
     
     
@@ -99,61 +97,110 @@ namespace ngn { namespace experimental {
         };
         // thou shalt not initialize on the stack
         struct buffer_header_base {
-            buffer_header_base(bool is_owner, bool is_user, byte* buf, size_t size) :
-            is_owner(is_owner),
-            is_user_base(is_user),
-            ref_count(1),
+            buffer_header_base(byte* buf, size_t size) :
             base(buf),
-            size(size) {};
+            size(size) {
+            };
             
             byte * const base;
             size_t size;
-            std::atomic_uint ref_count;
-            bool is_owner;
-            const bool is_user_base;
+            virtual void aquire() = 0;
             virtual void release() = 0;
         };
-        // allows for empty base optimization for allocators
+      
         template <class AllocT>
-        struct buffer_header : buffer_header_base, private AllocT {
+        struct buffer_inline_storage : buffer_header_base {
+          using allocator_type = AllocT;
+          using allocator_traits = std::allocator_traits<allocator_type>;
+          using pointer = typename  allocator_traits::pointer;
+          buffer_inline_storage(byte* buf, size_t size, allocator_type alloc) : buffer_header_base(buf, size), allocator(alloc) {
+          };
+          
+          virtual void release()
+          {
+            if (use_count.fetch_sub(1, std::memory_order_release) == 1) {
+              std::atomic_thread_fence(std::memory_order_acquire);
+              auto buffer_size = size;
+              ~buffer_inline_storage();
+              allocator_traits::destroy(allocator, this);
+              allocator_traits::deallocate(allocator,this, buffer_size);
+            }
+          }
+          std::atomic_uint use_count;
+          allocator_type allocator;
+        };
+        /*template <class AllocT>
+        struct buffer_header : buffer_header_base {
             using allocator_type = AllocT;
-            
+            using allocator_traits = std::allocator_traits<allocator_type>;
             buffer_header(bool is_owner,
                           bool is_user,
                           allocator_type alloc, byte* base, size_t size) :
             buffer_header_base(is_owner, is_user, base, size),
-            allocator_type(alloc) {};
+            allocator(alloc) {};
             virtual void release() {
-                allocator_type::destroy(this);
-                allocator_type::deallocate(this, size);
+                auto buffer_size = size;
+                allocator_traits::destroy(allocator, this);
+                allocator_traits::deallocate(allocator,this, buffer_size);
             }
-        };
+            AllocT allocator;
+        };*/
+    
+    template <class T, class Deleter = std::default_delete<T>>
+    class deleter_allocator_wrapper : public std::allocator<T> {
+    public:
+      using traits = std::allocator_traits<std::allocator<T>>;
+      using pointer = typename traits::pointer;
+      using size_type = typename traits::size_type;
+      deleter_allocator_wrapper(Deleter deleter) : m_deleter(deleter){
+      }
+      void deallocate(pointer p, size_type n) {
+        m_deleter(p);
+      }
+      private:
+        Deleter m_deleter;
+    };
+        template <class AllocT, class T>
+        using rebind_allocator_t = typename std::allocator_traits<AllocT>::template rebind_traits<T>::allocator_type;
         // good fucking lord what were you thinking?
         // jesus christ man clean this shit up
         // there's just no reason for this hackery to be here
         template <class AllocT>
-        class wrap_buffer_allocator : public
-        detail::aligned_allocator_adaptor<AllocT, alignof(buffer_header<AllocT>)>{
-            using aligned_allocator_type = detail::aligned_allocator_adaptor<AllocT, alignof(buffer_header<AllocT>)>;
-            using aligned_allocator_traits = std::allocator_traits<aligned_allocator_type>;
+        class buffer_allocator_adaptor :  rebind_allocator_t<AllocT, byte> {
+            using block_allocator_type = rebind_allocator_t<AllocT, byte>;
+            using block_allocator_traits = std::allocator_traits<block_allocator_type>;
         public:
             using wrapped_allocator_type = AllocT;
-            using value_type = buffer_header<wrap_buffer_allocator>;
-            using pointer = tq::add_pointer_t<value_type>;
-            using const_pointer = tq::add_const_t<pointer>;
-            using reference = tq::add_lvalue_reference_t<value_type>;
-            using const_reference = tq::add_const_t<reference>;
-            using size_type = typename aligned_allocator_traits::size_type;
-            using difference_type = typename aligned_allocator_traits::difference_type;
-            
-            
+            using value_type = buffer_header<buffer_allocator_adaptor>;
+            using pointer = core::add_pointer_t<value_type>;
+            using const_pointer = core::add_const_t<pointer>;
+            using reference = core::add_lvalue_reference_t<value_type>;
+            using const_reference = core::add_const_t<reference>;
+            using size_type = typename block_allocator_traits::size_type;
+            using difference_type = typename block_allocator_traits::difference_type;
+            static constexpr size_type padding_size = sizeof(value_type) + alignof(value_type) - 1;
+            buffer_allocator_adaptor() = default;
             template< class U >
-            wrap_buffer_allocator( const wrap_buffer_allocator<U>& other ) : aligned_allocator_type(static_cast<const typename wrap_buffer_allocator<U>::aligned_allocator_type&>(other)) {};
-            wrap_buffer_allocator(const wrap_buffer_allocator& other) : aligned_allocator_type(static_cast<const aligned_allocator_type&>(other)) {};
-            wrap_buffer_allocator(const wrapped_allocator_type& other) : aligned_allocator_type(other) {};
+            buffer_allocator_adaptor( const buffer_allocator_adaptor<U>& other ) : block_allocator_type(static_cast<const typename buffer_allocator_adaptor<U>::block_allocator_type&>(other)) {};
+            buffer_allocator_adaptor(const buffer_allocator_adaptor& other) : block_allocator_type(static_cast<const block_allocator_type&>(other)) {};
+            buffer_allocator_adaptor(const wrapped_allocator_type& other) : block_allocator_type(other) {};
             inline pointer allocate(size_type n, const void* hint = 0) {
-                auto ptr = reinterpret_cast<pointer>(aligned_allocator_type::allocate(sizeof(value_type) + n, hint));
-                std::cout << "allocated " << std::hex << ptr << " with capacity: " << std::dec << n << "\n";
+                size_type total_size = n + padding_size, header_space = padding_size;
+                auto block = block_allocator_type::allocate(total_size, hint);
+                auto aligned_block = reinterpret_cast<pointer>(std::align(alignof(value_type), sizeof(value_type), block, header_space));
+                if (aligned_block != nullptr)
+                {
+                  
+                } else
+                    throw std::bad_alloc();
+              
+                std::cout << "buffer allocated " << std::dec << total_size << " bytes at " << std::hex << ptr << " with capacity: " << std::dec << n << "\n";
+                std::cout << "buffer_header: size = " << sizeof(value_type) << ", align = " << alignof(value_type) << std::endl;
+                std::cout << "byte*: " << alignof(byte*) << std::endl;
+                std::cout << "size_t*: " << alignof(size_type) << std::endl;
+                std::cout << "atomic: " << alignof(std::atomic_uint) << std::endl;
+                std::cout << "alloc: " << alignof(AllocT) << std::endl;
+              
                 return ptr;
             }
             inline void deallocate(pointer p, size_type n) {
@@ -162,28 +209,32 @@ namespace ngn { namespace experimental {
             }
             template <class U, class... Args>
             inline void construct (U* p, Args&&... args) {
-                new (p) U(true, false, *this, reinterpret_cast<byte*>(p) + sizeof(value_type), std::forward<Args>(args)...);
+                new (p) U(reinterpret_cast<byte*>(p) + sizeof(value_type), std::forward<Args>(args)..., *this);
             }
             template <class U>
             inline void destroy (U* p) {
-                assert(!p->is_user_base);
                 p->~U();
             }
             
         };
+  
         template <class AllocT>
-        class wrap_user_buffer_allocator :
-        std::scoped_allocator_adaptor<
-        typename std::allocator_traits<AllocT>::template rebind_traits<wrap_user_buffer_allocator>::allocator_type
-        , AllocT> {
-            using base = std::scoped_allocator_adaptor<
-            typename std::allocator_traits<AllocT>::template rebind_traits<wrap_user_buffer_allocator>::allocator_type
-            , AllocT>;
-            using value_type = typename base::value_type;
-            using pointer = typename base::pointer;
-            using size_type = typename base::size_type;
+        class scoped_buffer_allocator_adaptor;
+      
+        template <class AllocT>
+        using scoped_buffer_allocator_adaptor_base = std::scoped_allocator_adaptor<rebind_allocator_t<AllocT,
+                               buffer_header<scoped_buffer_allocator_adaptor<AllocT>>
+                              >,
+            AllocT
+            >;
+      
+      
+        template <class AllocT>
+        class scoped_buffer_allocator_adaptor
+          : public scoped_buffer_allocator_adaptor_base<AllocT> {
+          public:
             
-            
+            //using scoped_buffer_allocator_adaptor<wrap_user_buffer_allocator<AllocT>, AllocT>::scoped_buffer_allocator_adaptor;
             template <class U, class... Args>
             inline void construct (U* p, bool is_owner, Args&&... args) {
                 new (p) U(is_owner, true, *this, std::forward<Args>(args)...);
@@ -191,9 +242,11 @@ namespace ngn { namespace experimental {
             template <class U>
             inline void destroy (U* p) {
                 assert(p->is_user_base);
-                if (p->is_owner) this->inner_allocator().deallocate(p->base, p->size);
+                if (p->is_owner)
+                  this->inner_allocator().deallocate(p->base, p->size);
                 p->~U();
             }
+          
             
         };
         template <class AllocT>
@@ -202,17 +255,29 @@ namespace ngn { namespace experimental {
             allocator_type allocator(alloc);
             auto header = allocator.allocate(capacity);
             allocator.construct(header, capacity);
+
+          
             return header;
         }
-        template <class AllocT>
+        /*template <class AllocT>
         static buffer_header_base* make_storage(bool is_owner, byte* base, size_t capacity, AllocT alloc) {
-            using allocator_type = wrap_user_buffer_allocator<AllocT>;
+            using allocator_type = scoped_buffer_allocator_adaptor<AllocT>;
+            using outer_allocator = typename allocator_type::outer_allocator_type;
             using inner_allocator = typename allocator_type::inner_allocator_type;
-            allocator_type allocator(inner_allocator(alloc), alloc);
-            auto header = allocator.allocate(1);
+            using allocator_traits = std::allocator_traits<allocator_type>;
+            outer_allocator outer{};
+            const inner_allocator& inner = alloc;
+            inner_allocator x { inner };
+            outer_allocator y { outer_allocator{}};
+            std::scoped_allocator_adaptor<rebind_allocator_t<AllocT, buffer_header<scoped_buffer_allocator_adaptor<AllocT>>>, AllocT> wtf { rebind_allocator_t<AllocT, buffer_header<scoped_buffer_allocator_adaptor<AllocT>>>{}, alloc  };
+          
+            allocator_type lol { outer_allocator{} };
+            /*auto header = allocator.allocate(1);
+            allocator_traits::construct(header, is_owner, base, capacity);
             allocator.construct(header, is_owner, base, capacity);
             return header;
-        };
+            return nullptr;
+        };*/
         
         /*
          template <class AllocT>
@@ -264,8 +329,9 @@ namespace ngn { namespace experimental {
         template <class AllocT = std::allocator<byte>>
         explicit Buffer(size_type capacity,
                         AllocT alloc = AllocT()) :
-        storage_(make_storage(capacity, alloc)){
-            
+        storage_(make_storage(capacity, alloc)),
+        data_(storage_->base),
+        size_(storage_->size) {
         }
         
         // copy constructors
@@ -282,7 +348,7 @@ namespace ngn { namespace experimental {
         
         
         // Take Ownership
-        Buffer(std::unique_ptr<value_type>&& source, size_type offset, size_type size);
+        Buffer(std::unique_ptr<value_type[]>&& source, size_type offset, size_type size);
         
         
         // copy constructor
@@ -300,10 +366,6 @@ namespace ngn { namespace experimental {
         // Modifiers
         //
         void swap(Buffer& other);
-        Buffer copy(iterator target_begin, iterator target_end, iterator source_begin, iterator source_end);
-        void fill(const_reference value);
-        void fill(iterator begin, iterator end, const_reference value);
-        void fill_n(const_reference value, iterator begin, size_type count);
         
         //
         // Views

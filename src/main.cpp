@@ -16,7 +16,6 @@
 #include <codecvt>
 #include <locale>
 #include <string_bytes.h>
-#include "buffer.h"
 #include <codecvt>
 #include "handle.h"
 #include <chrono>
@@ -57,46 +56,17 @@ void f1(const std::string& str) {
 }
 using ngn::events::scoped_connection;
 using ngn::events::connection;
+using ngn::experimental::Buffer;
 
-union foo {
-  std::string as_string;
-  int as_int;
-  bool as_bool;
-  long as_long;
-  float as_float;
-  double as_double;
-  long long as_long_long;
-  unsigned long as_ulong;
-};
-struct command {
-  template<class T>
-  command operator=(T obj) {
-    return command{};
-  }
-};
-
-struct program_arguments /*: command */ {
-  bool foo = /*{{"foo", "f"}, optional(true), true}*/ true;
-  std::string bar = /*{"bar"}*/ "bar";
-  struct ship_t : command {
-    struct create : command {
-      int x = 0;
-      int y = 0;
-    } create;
-    struct destroy_t : command {
-      int x = 0;
-      int y = 0;
-    } destroy;
-  } ship;
-};
 int main(int argc, const char * argv[])
 {
-  program_arguments args{};
-  args.ship.create.x;
-  for (auto i = 0; i < argc; i++)
-    std::cout << "arg: " << argv[i] << "\n";
-  std::cout << "size: " << sizeof(foo) << "\n";
-  std::cout << "size string: " << sizeof(std::string) << "\n";
+  std::string foo("hello world");
+  Buffer buff(foo.size());
+  std::copy(foo.begin(), foo.end(), buff.begin());
+  for (auto& c : buff) {
+    std::cout << c;
+  }
+  std::cout << std::endl << "done." << std::endl;
 }
 
 

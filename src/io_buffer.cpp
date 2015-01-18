@@ -26,8 +26,7 @@ namespace ngn { namespace experimental {
     typedef Buffer::difference_type difference_type;
     typedef Buffer::pointer pointer;
     typedef Buffer::const_pointer const_pointer;
-    
-    
+  
 
 
     
@@ -59,6 +58,14 @@ namespace ngn { namespace experimental {
     : Buffer(std::distance(begin, end)) {
         std::memcpy(data_, begin, size_);
     }
+    // take ownership
+    /*Buffer::Buffer(std::unique_ptr<value_type[]>&& source, size_type offset, size_type size) :
+     storage_(make_storage(true, source.get(), size, std::allocator<value_type>{})),
+     data_(source.get()),
+     size_(size_) {
+     
+    };*/
+
     // copy constructor
     Buffer::Buffer(const Buffer& other) noexcept {
         // should we copy the buffer?
@@ -68,9 +75,9 @@ namespace ngn { namespace experimental {
             storage_ = other.storage_;
             size_ = other.size_;
             data_ = other.data_;
-            if (other && storage_->is_owner) {
+            /*if (other && storage_->is_owner) {
                 storage_->ref_count.fetch_add(1, std::memory_order_relaxed);
-            }
+            }*/
         }
     };
     // move constructor
@@ -89,15 +96,8 @@ namespace ngn { namespace experimental {
     }*/
     
     Buffer::~Buffer() noexcept {
-        // if we are the last owner of a user-defined buffer, free it's memory
-        if (storage_->is_owner &&
-            storage_->ref_count.fetch_sub(1, std::memory_order_release) == 1) {
-            std::atomic_thread_fence(std::memory_order_acquire);
-            storage_->release();
-        } else if (!storage_->is_owner) {
-            storage_->release();
-            //delete[] reinterpret_cast<char*>(storage_->handle);
-        }
+        if (storage_ != nullptr)
+          storage_->release();
     };
     
     //
@@ -109,16 +109,7 @@ namespace ngn { namespace experimental {
         swap(data_, other.data_);
         swap(storage_, other.storage_);
     };
-    
-    void Buffer::fill(const_reference value) {
-        fill(begin(), end(), value);
-    };
-    void Buffer::fill(iterator begin, iterator end, const_reference value) {
-        std::memset(begin, value, std::distance(begin, end));
-    };
-    void Buffer::fill_n(const_reference value, iterator begin, size_type count) {
-        std::memset(begin, value, count);
-    };
+  
     
     //
     // Views

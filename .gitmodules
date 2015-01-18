@@ -19,3 +19,6 @@
 [submodule "deps/tq"]
 	path = deps/tq
 	url = git@github.com:ilsken/tq.git
+[submodule "deps/core"]
+	path = deps/core
+	url = git@github.com:mnmlstc/core.git
