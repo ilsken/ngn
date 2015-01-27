@@ -17,10 +17,9 @@
 #include "encoding.h"
 #include "buffer.h"
 #include "traits.h"
-#include "optional.h"
 #include "utils.h"
 #include "encoding.h"
-
+#include <core/optional.hpp>
 
 
 // don't raise the hwm above 128MB
@@ -29,7 +28,8 @@
 
 namespace ngn{
     using std::string;
-    
+    using core::optional;
+    using core::nullopt;
     enum ReadableState {
         Ended,
         Initial,

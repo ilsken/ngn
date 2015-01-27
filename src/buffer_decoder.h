@@ -14,8 +14,7 @@
 #include <vector>
 #include <string.h>
 #include "buffer.h"
-#include "optional.h"
-
+#include <core/optional.hpp>
 
 namespace ngn {
     enum Encoding {
@@ -34,7 +33,7 @@ namespace internal {
     using std::wstring;
     using std::u16string;
     using std::u32string;
-    using ngn::optional;
+    using core::optional;
     
     typedef std::string u8string;
     typedef std::string asciistring;

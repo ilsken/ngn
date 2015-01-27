@@ -8,7 +8,7 @@
 
 #ifndef __tq__aligned_allocator__
 #define __tq__aligned_allocator__
-
+/*
 #include <cstddef>
 #include <memory>
 #include <assert.h>
@@ -104,5 +104,5 @@ namespace ngn { namespace detail{
         }
     }; // class aligned_allocator
 }}
-
+*/
 #endif /* defined(__tq__aligned_allocator__) */

@@ -8,6 +8,7 @@
 
 #ifndef __ngn__buffer_allocator_adaptor__
 #define __ngn__buffer_allocator_adaptor__
+/*
 #include <atomic>
 #include <tq/type_traits.h>
 #include "aligned_allocator.h"
@@ -114,6 +115,6 @@ namespace ngn { namespace detail {
             }
         }
     };
-}}
+}}*/
 
 #endif /* defined(__ngn__buffer_allocator_adaptor__) */

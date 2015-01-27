@@ -96,6 +96,8 @@ namespace ngn { namespace experimental {
     }*/
     
     Buffer::~Buffer() noexcept {
+        std::cout << "hola i am buffer" << std::endl;
+        std::cout << "storage: " << storage_ << std::endl;
         if (storage_ != nullptr)
           storage_->release();
     };
